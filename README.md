@@ -1,3 +1,5 @@
+READ ME from danielfrg's github repository:
+
 word2vec
 ========
 
