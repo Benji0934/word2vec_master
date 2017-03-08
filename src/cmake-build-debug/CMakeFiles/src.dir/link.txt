@@ -1,1 +1,0 @@
-/usr/bin/cc  -g   CMakeFiles/src.dir/compute-accuracy.c.o CMakeFiles/src.dir/distance.c.o CMakeFiles/src.dir/word-analogy.c.o CMakeFiles/src.dir/word2phrase.c.o CMakeFiles/src.dir/word2vec.c.o  -o src 
