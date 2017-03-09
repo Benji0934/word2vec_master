@@ -9,6 +9,6 @@ set(SOURCE_FILES
         src/word-analogy.c
         src/word2phrase.c
         src/word2vec.c
-     )
+        src/main.cpp)
 
 add_executable(word2vec_master ${SOURCE_FILES})
