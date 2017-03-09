@@ -8,12 +8,12 @@
 #include "WrapperW2V.h"
 
 using namespace std;
-int main() {
-    cout << "Hello World!" << endl;
+
+int testing() {
     int dims = WrapperW2V("../word2vecFiles/text8-vector.bin").getNumDimensions();
     cout << "tihih" + to_string(dims);
     WrapperW2V wrapper = WrapperW2V("../word2vecFiles/text8-vector.bin");
- //   float f = wrapper.getWordVectors().front().;
+    //   float f = wrapper.getWordVectors().front().;
 
     vector<float> vec = wrapper.getVectorForKnownWord("hi");
     boost::optional<vector<float>> optional = wrapper.getVectorForWord("hi");
@@ -32,6 +32,10 @@ int main() {
     cout << "Second val of 'hi' lookup" + to_string(wrapper.getWords().find("hi")->second) << endl;
 
     cout << "looking up the word 6922 in the wordVectors vector" << endl;
+    vector<float> wordVec = wrapper.getWordVectors().at(6922);
+    for (auto it = wordVec.begin(); it!=wordVec.end(); ++it) {
+        cout << to_string(*it.base()) + " ";
+    }
 
 
     /*
@@ -42,6 +46,15 @@ int main() {
         }
     }
 */
-    return 0;
+}
+
+int kMeans() {
 
 }
+
+int main() {
+    cout << "Hello World!" << endl;
+    testing();
+    return 0;
+}
+
