@@ -1,4 +1,4 @@
-READ ME from danielfrg's github repository:
+READ ME from dav's github repository:
 
 word2vec
 ========
