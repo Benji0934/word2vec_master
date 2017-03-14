@@ -41,6 +41,7 @@ WrapperW2V::WrapperW2V(const std::string &fileName) {
                 wordVectors[wordID][dimensionIterator] /= len;
             }
             words.insert(make_pair(string(w), wordID));
+            inverseWords.insert(make_pair(wordID, string(w)));
         }
         file.close();
     }
@@ -116,6 +117,11 @@ long long int WrapperW2V::getNumDimensions() const {
 const unordered_map<string, uint32_t> &WrapperW2V::getWords() const {
     return words;
 }
+
+const unordered_map<uint32_t, string> &WrapperW2V::getInverseWords() const {
+    return inverseWords;
+}
+
 
 const vector<vector<float>> &WrapperW2V::getWordVectors() const {
     return wordVectors;

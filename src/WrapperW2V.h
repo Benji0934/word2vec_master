@@ -15,6 +15,7 @@ private:
     long long numWords;
     long long numDimensions;
     std::unordered_map<std::string, uint32_t > words;
+    std::unordered_map<uint32_t, std::string> inverseWords;
     std::vector<std::vector<float>> wordVectors;
     const long long maxWordLength = 50;
 public:
@@ -51,6 +52,8 @@ public:
 
     float calculateDistanceForKnownWords(const std::string &word1, const std::string &word2) const;
     float calculateDistanceForKnownWords(const uint32_t &wordID1, const uint32_t &wordID2) const;
+
+    const std::unordered_map<uint32_t, std::string> &getInverseWords() const;
 };
 
 
