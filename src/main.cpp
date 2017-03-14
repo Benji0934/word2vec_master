@@ -6,6 +6,7 @@
 
 #include <string>
 #include <cstring>
+#include <fstream>
 #include "WrapperW2V.h"
 
 using namespace std;
@@ -136,9 +137,16 @@ int kMeans(int amountOfClusters) {
         //For all words we set the cent[] to be the weights of the NN. That is, we store the weigths for the words into the cent array.
         //Also counts the amount of points in each cluster.
         //The syn0 can be read in from the text-8-vector.bin or text-8-vector.txt
+        //TODO: HEUREKA! C is iterating over the words. and d is iterating over the weights/features in the vector.
         for (c = 0; c < vocab_size; c++) {
+
             for (d = 0; d < layer1_size; d++) {
-                cent[layer1_size * cl[c] + d] += syn0[c * layer1_size + d]; //You could use a = sign instead of +=, right?
+                //cent[layer1_size * cl[c] + d] += syn0[c * layer1_size + d]; //Original line
+                //Finding the wordVector corresponding to the c'th index:
+                vector<float> wordVec = wrapper.getWordVectors().at(c);
+                //Getting the weight corresponding to the d'th index in the c'th vector.
+                float weight = wordVec.at(d);
+                cent[layer1_size * cl[c] + d] += weight; //You could use a = sign instead of +=, right?
                 centcn[cl[c]]++;
             }
         }
@@ -155,13 +163,22 @@ int kMeans(int amountOfClusters) {
         }
 
         //For every word.
+        //TODO: HEUREKA! C is iterating over the words. and b is iterating over the weights/features in the vector.
+        //Replace these with iterations over the
         for (c = 0; c < vocab_size; c++) {
             closev = -10;
             closeid = 0;
             //For every cluster
             for (d = 0; d < clcn; d++) {
                 x = 0;
-                for (b = 0; b < layer1_size; b++) x += cent[layer1_size * d + b] * syn0[c * layer1_size + b];
+                for (b = 0; b < layer1_size; b++)
+                {
+                    //x += cent[layer1_size * d + b] * syn0[c * layer1_size + b];
+                    vector<float> wordVec = wrapper.getWordVectors().at(c);
+                    //Getting the weight corresponding to the d'th index in the c'th vector.
+                    float weight = wordVec.at(b);
+                    x += cent[layer1_size * d + b] * weight;
+                }
                 if (x > closev) {
                     closev = x;
                     closeid = d;
@@ -182,9 +199,18 @@ int kMeans(int amountOfClusters) {
      * Maybe I should create another data structure to keep the words and the position of it in.
      */
     //insertIntoVocab();
+    ofstream myfile;
+    myfile.open ("example.txt");
+
+
     for (a = 0; a < vocab_size; a++) {
-        fprintf(fo, "%s %d\n", vocab[a].word, cl[a]);
+       // fprintf(fo, "%s %d\n", vocab[a].word, cl[a]);
+        //cout << wrapper.getInverseWords().find(a)->second << endl;
+        //fprintf(fo, "%s %d\n", wrapper.getInverseWords().find(a)->second, cl[a]);
+        myfile << wrapper.getInverseWords().find(a)->second + " " + to_string(cl[a]) + "\n";
+        cout << wrapper.getInverseWords().find(a)->second << cl[a] << endl;
     }
+    myfile.close();
     free(centcn);
     free(cent);
     free(cl);
@@ -192,25 +218,34 @@ int kMeans(int amountOfClusters) {
 }
 
 void test2() {
-    cout << to_string(wrapper.getWords().size());
+    cout << "amount of words: " << to_string(wrapper.getWords().size());
     for(auto it = wrapper.getWords().begin(); it != wrapper.getWords().end(); ++it) {
   //      cout << it->first + " " << it->second << endl;
     }
-    cout << endl << "Testing the Word map" << endl;
+    cout << endl << "Testing the Word map find" << endl;
     cout << "First value of 'and' lookup" + wrapper.getWords().find("and")->first << endl;
     cout << "Second val of 'and' lookup" + to_string(wrapper.getWords().find("and")->second) << endl;
 
-    cout << endl << "Testing the InverseWord map" << endl;
+    cout << endl << "Testing the InverseWord map find" << endl;
     cout << "First value of '3' lookup" + to_string(wrapper.getInverseWords().find(3)->first) << endl;
     cout << "Second val of '3' lookup" + (wrapper.getInverseWords().find(3)->second) << endl;
 
     //cout << "looking up the first word in getWords" << endl;
     //int  a = wrapper.getWords().;
 
-    cout << "looking up the word 1 in the wordVectors vector" << endl;
-    vector<float> wordVec = wrapper.getWordVectors().at(2);
-
+    cout << "Testing WordVectors at position 3" << endl;
+    vector<float> wordVec = wrapper.getWordVectors().at(3);
     for (auto it = wordVec.begin(); it!=wordVec.end(); ++it) {
+        cout << to_string(*it.base()) + " ";
+    }
+    cout << endl << "Front: " << wordVec.front() << endl;
+    cout << "Back: " << wordVec.back() << endl;
+    cout << "Pos1: " << wordVec.at(1) << endl;
+
+    cout << "Vector for word 'and'" << endl;
+    boost::optional<vector<float>> optVec = wrapper.getVectorForWord("and");
+    vector<float> andVec = (vector<float> &&) optVec.get();
+    for (auto it = andVec.begin(); it!=andVec.end(); ++it) {
         cout << to_string(*it.base()) + " ";
     }
     /*vector<float> wordVecs = wrapper.getWordVectors().at(6922);
@@ -225,11 +260,10 @@ void test2() {
 }
 
 int main() {
-    cout << "Hello World!" << endl;
     creationOfSyn();
-    //kMeans(10);
+    kMeans(500);
     //testing();
-    test2();
+    //test2();
     return 0;
 }
 
