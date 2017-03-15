@@ -15,18 +15,7 @@ WrapperW2V wrapper = WrapperW2V("../word2vecFiles/text8-vector.bin");
 long vocab_size = wrapper.getWords().size();
 long long vocab_max_size = 1000;
 
-struct vocab_word {
-    long long cn;
-    int *point;
-    char *word, *code, codelen;
-};
-
-struct vocab_word *vocab;
-
-
 void creationOfSyn();
-
-void createInverseMapping();
 
 int testing() {
     int dims = WrapperW2V("../word2vecFiles/text8-vector.bin").getNumDimensions();
@@ -67,47 +56,29 @@ int testing() {
 */  return 0;
 }
 
-void DestroyVocab() {
-    int a;
-
-    for (a = 0; a < vocab_size; a++) {
-        if (vocab[a].word != NULL) {
-            free(vocab[a].word);
-        }
-        if (vocab[a].code != NULL) {
-            free(vocab[a].code);
-        }
-        if (vocab[a].point != NULL) {
-            free(vocab[a].point);
-        }
-    }
-    free(vocab[vocab_size].word);
-    free(vocab);
-}
-
-int insertIntoVocab() {
-    std::string str = "hej";
-    cout << str << endl;
- //   std::copy(str.begin(), str.end(), vocab[1].word);
-    string s = vocab[1].word;
-    cout << s << vocab[1].word << endl << "hello" <<endl;
-
-}
 /*
  * Code taken from the word2vec.c file published by Mikolov.
  */
-int kMeans(int amountOfClusters) {
+void kMeans(int amountOfClusters) {
     long a, b, c, d;
-    long long layer1_size = 200; //Amount of features/amount of weights in the NN.
+    long long layer1_size = 200; //Amount of features/amount of weights in the NN. 200 originally
     long *syn0;
+    float weight = 0;
+    vector<vector<float>> wordVectors;
+    //This reserve thing might be some hocus pocus.
+    wordVectors.reserve(72000);
+    for (auto it = wordVectors.begin(); it!=wordVectors.end(); it++) {
+        it->reserve(200);
+    }
+    wordVectors = wrapper.getWordVectors();
+    vector<float> wordVec;
+    wordVec.reserve(200);
 
 // might have to find the maximum length for a string, instead of 10000.
     char output_file[10000];
     strcpy(output_file, "../word2vecFiles/classes.txt");
-    FILE *fo;
-    fo = fopen(output_file, "wb");
-
-
+   // FILE *fo;
+   // fo = fopen(output_file, "wb");
 
     // Run K-means on the word vectors.
 
@@ -128,6 +99,7 @@ int kMeans(int amountOfClusters) {
 
     //10 iterations of Kmeans.
     for (a = 0; a < iter; a++) {
+        cout << to_string(a) << "th iter." << endl;
         //Setting the whole cent array to 0, for 10*100 indices.
         for (b = 0; b < clcn * layer1_size; b++) cent[b] = 0;
 
@@ -138,18 +110,20 @@ int kMeans(int amountOfClusters) {
         //Also counts the amount of points in each cluster.
         //The syn0 can be read in from the text-8-vector.bin or text-8-vector.txt
         //TODO: HEUREKA! C is iterating over the words. and d is iterating over the weights/features in the vector.
+        //cout << "First time running through the weights of the vectors." << endl;
         for (c = 0; c < vocab_size; c++) {
-
             for (d = 0; d < layer1_size; d++) {
                 //cent[layer1_size * cl[c] + d] += syn0[c * layer1_size + d]; //Original line
                 //Finding the wordVector corresponding to the c'th index:
-                vector<float> wordVec = wrapper.getWordVectors().at(c);
+                wordVec = wordVectors.at(c);
+                //cout << to_string(wordVec.at(d)) << endl;
                 //Getting the weight corresponding to the d'th index in the c'th vector.
-                float weight = wordVec.at(d);
+                weight = wordVec.at(d);
                 cent[layer1_size * cl[c] + d] += weight; //You could use a = sign instead of +=, right?
                 centcn[cl[c]]++;
             }
         }
+        //cout << "Finished running through the weights of the vectors the first time." << endl;
 
         //For all clusters. We find the centroids?
         for (b = 0; b < clcn; b++) {
@@ -165,18 +139,29 @@ int kMeans(int amountOfClusters) {
         //For every word.
         //TODO: HEUREKA! C is iterating over the words. and b is iterating over the weights/features in the vector.
         //Replace these with iterations over the
+        //cout << "second time running through the word vectors." << endl;
         for (c = 0; c < vocab_size; c++) {
             closev = -10;
             closeid = 0;
+
+            if (c==10000) {
+                cout << "Reached 10k words" << endl;
+            }
+            if (c==20000) {
+                cout << "Reached 20k words" << endl;
+            }
+            if (c==50000) {
+                cout << "Reached 50k words" << endl;
+            }
             //For every cluster
             for (d = 0; d < clcn; d++) {
                 x = 0;
                 for (b = 0; b < layer1_size; b++)
                 {
                     //x += cent[layer1_size * d + b] * syn0[c * layer1_size + b];
-                    vector<float> wordVec = wrapper.getWordVectors().at(c);
+                    wordVec = wordVectors.at(c);
                     //Getting the weight corresponding to the d'th index in the c'th vector.
-                    float weight = wordVec.at(b);
+                    weight = wordVec.at(b);
                     x += cent[layer1_size * d + b] * weight;
                 }
                 if (x > closev) {
@@ -186,6 +171,8 @@ int kMeans(int amountOfClusters) {
             }
             cl[c] = closeid;
         }
+        //cout << "FINISHED: second time running through the word vectors." << endl;
+
     }
     // Save the K-means classes
     //TODO: What I need is to get syn0[] out, since it contains all the weights in the NN, which is the features of the word vectors.
@@ -198,23 +185,20 @@ int kMeans(int amountOfClusters) {
      * The fault I'm getting now, is a seg fault. Which means I try to access some memory that I should not.
      * Maybe I should create another data structure to keep the words and the position of it in.
      */
-    //insertIntoVocab();
     ofstream myfile;
-    myfile.open ("example.txt");
-
+    myfile.open ("classes.txt");
+    cout << "writing to files " << endl;
+    //std::ofstream log("example.txt", std::ios_base::app | std::ios_base::out);
 
     for (a = 0; a < vocab_size; a++) {
-       // fprintf(fo, "%s %d\n", vocab[a].word, cl[a]);
-        //cout << wrapper.getInverseWords().find(a)->second << endl;
-        //fprintf(fo, "%s %d\n", wrapper.getInverseWords().find(a)->second, cl[a]);
         myfile << wrapper.getInverseWords().find(a)->second + " " + to_string(cl[a]) + "\n";
-        cout << wrapper.getInverseWords().find(a)->second << cl[a] << endl;
+       // cout << wrapper.getInverseWords().find(a)->second << cl[a] << endl;
+        //log << wrapper.getInverseWords().find(a)->second + " " + to_string(cl[a]) + "\n";
     }
     myfile.close();
     free(centcn);
     free(cent);
     free(cl);
-    DestroyVocab();
 }
 
 void test2() {
