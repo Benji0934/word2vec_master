@@ -13,7 +13,6 @@ using namespace std;
 
 WrapperW2V wrapper = WrapperW2V("../word2vecFiles/text8-vector.bin");
 long vocab_size = wrapper.getWords().size();
-long long vocab_max_size = 1000;
 
 void creationOfSyn();
 
@@ -61,18 +60,18 @@ int testing() {
  */
 void kMeans(int amountOfClusters) {
     long a, b, c, d;
-    long long layer1_size = 200; //Amount of features/amount of weights in the NN. 200 originally
+    long long layer1_size = wrapper.getNumDimensions(); //Amount of features/amount of weights in the NN. 200 originally
     long *syn0;
     float weight = 0;
     vector<vector<float>> wordVectors;
     //This reserve thing might be some hocus pocus.
-    wordVectors.reserve(72000);
+    wordVectors.reserve(vocab_size);
     for (auto it = wordVectors.begin(); it!=wordVectors.end(); it++) {
-        it->reserve(200);
+        it->reserve(layer1_size);
     }
     wordVectors = wrapper.getWordVectors();
     vector<float> wordVec;
-    wordVec.reserve(200);
+    wordVec.reserve(layer1_size);
 
 // might have to find the maximum length for a string, instead of 10000.
     char output_file[10000];
@@ -81,7 +80,6 @@ void kMeans(int amountOfClusters) {
    // fo = fopen(output_file, "wb");
 
     // Run K-means on the word vectors.
-
     //Allocates memory for arrays.
     int clcn = amountOfClusters, iter = 10, closeid;
     int *centcn = (int *)malloc(amountOfClusters * sizeof(int));
@@ -109,7 +107,7 @@ void kMeans(int amountOfClusters) {
         //For all words we set the cent[] to be the weights of the NN. That is, we store the weigths for the words into the cent array.
         //Also counts the amount of points in each cluster.
         //The syn0 can be read in from the text-8-vector.bin or text-8-vector.txt
-        //TODO: HEUREKA! C is iterating over the words. and d is iterating over the weights/features in the vector.
+        // C is iterating over the words. and d is iterating over the weights/features in the vector.
         //cout << "First time running through the weights of the vectors." << endl;
         for (c = 0; c < vocab_size; c++) {
             for (d = 0; d < layer1_size; d++) {
@@ -137,7 +135,7 @@ void kMeans(int amountOfClusters) {
         }
 
         //For every word.
-        //TODO: HEUREKA! C is iterating over the words. and b is iterating over the weights/features in the vector.
+        // C is iterating over the words. and b is iterating over the weights/features in the vector.
         //Replace these with iterations over the
         //cout << "second time running through the word vectors." << endl;
         for (c = 0; c < vocab_size; c++) {
@@ -175,16 +173,6 @@ void kMeans(int amountOfClusters) {
 
     }
     // Save the K-means classes
-    //TODO: What I need is to get syn0[] out, since it contains all the weights in the NN, which is the features of the word vectors.
-
-    //TODO: Need inverse mapping for getWords(): int->string
-
-    /* TODO:
-     * I need to create the struct vocab which is required to connect the words with their assigned clusters.
-     * The problem is that the vocab has to be created with specific indices.
-     * The fault I'm getting now, is a seg fault. Which means I try to access some memory that I should not.
-     * Maybe I should create another data structure to keep the words and the position of it in.
-     */
     ofstream myfile;
     myfile.open ("classes.txt");
     cout << "writing to files " << endl;
@@ -243,15 +231,38 @@ void test2() {
   //  DestroyVocab();
 }
 
-int main() {
-    creationOfSyn();
-    kMeans(500);
-    //testing();
-    //test2();
-    return 0;
+void test3() {
+    cout << "Vars: " << vocab_size << endl;
+    cout << "Vars: " << wrapper.getNumDimensions() << endl;
+}
+void hierarchicalClustering() {
+    //0. Load numbers
+
+    //1. Create avgs (mean-points)
+
+    //2. Measure cosine distance between means
+    //cos(d1, d2) = 1-(d1 ⋅ d2) / ||d1||*||d2||
+    //||d1|| is the length of the vector
+
+    //3. Merge the two closest clusters
+
+    //4. Recalculate mean/avg for the new cluster
+
+    //5. Recalculate the distance from the new cluster to the existing ones
+
+    //6. Goto step 3
 }
 
-void creationOfSyn() {
-
+/* TODO:
+     * I need to do the hierarchical clustering after the flat clustering is done.
+     * Maybe in another method. I should find the two clusters that are closest and then merge those.
+     * Then repeat until there is only one cluster left.
+     */
+int main() {
+    //kMeans(500);
+    hierarchicalClustering();
+    //testing();
+    test3();
+    return 0;
 }
 
