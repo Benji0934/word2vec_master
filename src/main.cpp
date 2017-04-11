@@ -4,19 +4,13 @@
 
 #include <iostream>
 
-#include <string>
+
 #include <cstring>
 #include <fstream>
 #include "WrapperW2V.h"
 #include <chrono>
 #include <sstream>
-#include <string>
-#include <fstream>
-#include <string>
-#include <sstream>
-#include <vector>
 #include <iterator>
-#include <math.h>
 #include <cfloat>
 
 
@@ -29,6 +23,8 @@ long long dims = wrapper.getNumDimensions();
 
 double maxVal = DBL_MAX;
 vector<int> usedClusters;
+
+void createClusterBitString();
 
 int testing() {
     long dims = WrapperW2V("../word2vecFiles/text8-vector.bin").getNumDimensions();
@@ -217,53 +213,6 @@ void kMeans(int amountOfClusters) {
     free(cl);
 }
 
-void test2() {
-    cout << "amount of words: " << to_string(wrapper.getWords().size());
-    for (auto it = wrapper.getWords().begin(); it != wrapper.getWords().end(); ++it) {
-        //      cout << it->first + " " << it->second << endl;
-    }
-    cout << endl << "Testing the Word map find" << endl;
-    cout << "First value of 'and' lookup" + wrapper.getWords().find("and")->first << endl;
-    cout << "Second val of 'and' lookup" + to_string(wrapper.getWords().find("and")->second) << endl;
-
-    cout << endl << "Testing the InverseWord map find" << endl;
-    cout << "First value of '3' lookup" + to_string(wrapper.getInverseWords().find(3)->first) << endl;
-    cout << "Second val of '3' lookup" + (wrapper.getInverseWords().find(3)->second) << endl;
-
-    //cout << "looking up the first word in getWords" << endl;
-    //int  a = wrapper.getWords().;
-
-    cout << "Testing WordVectors at position 3" << endl;
-    vector<float> wordVec = wrapper.getWordVectors().at(3);
-    for (auto it = wordVec.begin(); it != wordVec.end(); ++it) {
-        cout << to_string(*it.base()) + " ";
-    }
-    cout << endl << "Front: " << wordVec.front() << endl;
-    cout << "Back: " << wordVec.back() << endl;
-    cout << "Pos1: " << wordVec.at(1) << endl;
-
-    cout << "Vector for word 'and'" << endl;
-    boost::optional<vector<float>> optVec = wrapper.getVectorForWord("and");
-    vector<float> andVec = (vector<float> &&) optVec.get();
-    for (auto it = andVec.begin(); it != andVec.end(); ++it) {
-        cout << to_string(*it.base()) + " ";
-    }
-    /*vector<float> wordVecs = wrapper.getWordVectors().at(6922);
-   unordered_map<string, uint32_t> words = wrapper.getWords();
-   //words.
-
-    */
-
-    //vocab = (struct vocab_word *)calloc(vocab_max_size, sizeof(struct vocab_word));
-    //  insertIntoVocab();
-    //  DestroyVocab();
-}
-
-void test3() {
-    cout << wrapper.getNumDimensions() << endl;
-    cout << vocab_size << endl;
-}
-
 template<typename Out>
 void split(const std::string &s, char delim, Out result) {
     std::stringstream ss;
@@ -302,14 +251,19 @@ double getDistanceBetweenVectors(vector<double> v1, vector<double> v2) {
 
 }
 
-void hierarchicalClustering(int amountOfClusters) {
-    //0. Load numbers
-    int clusterCnt = amountOfClusters;
+void hierarchicalClustering(unsigned int amountOfClusters) {
+    //0. Creating variables and files.
+    unsigned int clusterCnt = amountOfClusters;
     string clusterCntString = to_string(amountOfClusters);
     vector<vector<double>> means;
     vector<vector<double>> distances;
     vector<int> vectorsInClusters;
-    for (int i = 0; i < amountOfClusters; i++) {
+    //Deleting old tree and hierarchy files
+    remove("../tree.txt");
+    remove("../hierarchy.txt");
+
+    //Initializing 'means' and 'distances'
+    for (unsigned int i = 0; i < amountOfClusters; i++) {
         vectorsInClusters.push_back(0);
     }
     //Creating means
@@ -317,27 +271,23 @@ void hierarchicalClustering(int amountOfClusters) {
     for (int i = 0; i < dims; i++) {
         temp.push_back(0);
     }
-    for (int i = 0; i < amountOfClusters; i++) {
+    for (unsigned int i = 0; i < amountOfClusters; i++) {
         means.push_back(temp);
     }
-
     //Creating distance
     temp.clear();
-    for (int i = 0; i < amountOfClusters; i++) {
+    for (unsigned int i = 0; i < amountOfClusters; i++) {
         temp.push_back(0);
     }
-    for (int i = 0; i < amountOfClusters; i++) {
+    for (unsigned int i = 0; i < amountOfClusters; i++) {
         distances.push_back(temp);
     }
 
-    //1. Create means (mean-points)
+    //1. Calculate means (mean-points)
     cout << "Calculating initial means..." << endl;
-
     std::ifstream infile("../classes.txt");
-    //int vectorsInClusters = 0;
     std::string line;
     while (std::getline(infile, line)) {
-        //std::istringstream iss(line);
         string word;
         int clusterID;
         vector<string> stringAndPos = split(line, ' ');
@@ -346,18 +296,12 @@ void hierarchicalClustering(int amountOfClusters) {
         vector<float> wordVector = wrapper.getVectorForKnownWord(word);
         vectorsInClusters[clusterID]++;
         for (unsigned int i = 0; i < dims; i++) {
-            //means[i][clusterID] = (means[i][clusterID] + wordVector.at(i))/vectorsInClusters[clusterID];
             means[clusterID][i] = (means[clusterID][i] + wordVector.at(i)) / vectorsInClusters[clusterID];
-            //cout << wordVector.at(i) << endl;
-            //cout << means[i][clusterID] << endl;
-            //cout << clusterID << endl;
-            //cout << vectorsInClusters[clusterID] << endl;
         }
     }
     //2. Measure cosine distance between means
     //Creating vectors
-
-    for (int k = 0; k < amountOfClusters; k++) {
+    for (unsigned int k = 0; k < amountOfClusters; k++) {
         vector<double> v1;
         vector<double> v2;
         v1 = means[k];
@@ -384,7 +328,7 @@ void hierarchicalClustering(int amountOfClusters) {
     int jVal = 0;
     for (unsigned int i = 0; i < clusterCnt; i++) {
         for (unsigned int j = 0; j < clusterCnt; j++) {
-            if (!i == j) {
+            if (i!=j) {
                 double currentDist = distances[i][j];
                 //cout << "Distance found: " << currentDist << endl;
                 if (currentDist < shortestDist) {
@@ -408,33 +352,40 @@ void hierarchicalClustering(int amountOfClusters) {
     std::string mergedClassesStr;
     ofstream oldClassesWriteFile;
     oldClassesWriteFile.open("../oldClasses.txt");
-
     while (std::getline(mergedClassesReadFile, mergedClassesStr)) {
         oldClassesWriteFile << mergedClassesStr + "\n";
     }
     mergedClassesReadFile.close();
     oldClassesWriteFile.close();
 
+    //Merging clusters in mergedClasses.txt
     ofstream mergedClassesWriteFile;
     mergedClassesWriteFile.open("../mergedClasses.txt");
-
     std::ifstream oldClassesReadFile("../oldClasses.txt");
     std::string str;
-
+    string currentString;
+    string currentClass;
     while (std::getline(oldClassesReadFile, str)) {
         str = str + "\n";
-        std::size_t foundJ = str.find(jString + "\n");
-        std::size_t foundI = str.find(iString + "\n");
-        if (foundJ != std::string::npos) {
-            string newString = str.substr(0, str.find(jString));
-            newString = newString + clusterCntString + "\n";
-            mergedClassesWriteFile << newString;
-        } else if (foundI != std::string::npos) {
-            string newString = str.substr(0, str.find(iString));
-            newString = newString + clusterCntString + "\n";
-            mergedClassesWriteFile << newString;
-        } else {
-            mergedClassesWriteFile << str;
+        //Cutting it up.
+        std::size_t found = str.find(' ');
+        if (found!=std::string::npos) {
+            currentString = str.substr (0,found);
+            currentClass = str.substr(found+1, str.length()-found-1);
+            cout << currentString << "," << currentClass << endl;
+            if (stoi(currentClass) == iVal) {
+                cout << "Found class that should be merged.." << iString << endl;
+                string newString = str.substr(0, str.find(iString));
+                newString = newString + clusterCntString + "\n";
+                mergedClassesWriteFile << newString;
+            } else if (stoi(currentClass) == jVal) {
+                cout << "Found class that should be merged.." << jString << endl;
+                string newString = str.substr(0, str.find(jString));
+                newString = newString + clusterCntString + "\n";
+                mergedClassesWriteFile << newString;
+            } else {
+                mergedClassesWriteFile << str;
+            }
         }
     }
     mergedClassesWriteFile.close();
@@ -448,11 +399,11 @@ void hierarchicalClustering(int amountOfClusters) {
     treeFile << iString << "," << clusterCntString << "\n";
     treeFile << jString << "," << clusterCntString << "\n";
     treeFile.close();
-    //Writing hierarchy
+    //Writing hierarchy. It should keep track of the tree levels.
     //Format: level,label<0>,label<1>,...,label<amountOfWords>
     ofstream hierarchyFile;
     hierarchyFile.open("../hierarchy.txt",std::ios_base::app);
-    //treeFile << iString << "," << jString << "\n";
+    //hierarchyFile << iString << "," << jString << "\n";
     hierarchyFile.close();
     clusterCnt++;
     clusterCntString = to_string(clusterCnt);
@@ -473,25 +424,31 @@ void hierarchicalClustering(int amountOfClusters) {
 
     //5. Recalculate the distance from the new cluster to the existing ones
     cout << "Recalculating distances..." << endl;
-    //Copy distances..
+    //Copy the old distances..
     vector<vector<double>> newDistances;
     vector<double> newDistVec;
-    for (int i = 0; i < clusterCnt; i++) {
+    for (unsigned int i = 0; i < clusterCnt; i++) {
         newDistVec.push_back(maxVal);
     }
-    for (int l = 0; l < clusterCnt; ++l) {
+    for (unsigned int l = 0; l < clusterCnt; ++l) {
         newDistances.push_back(newDistVec);
     }
-    for (int i = 0; i < clusterCnt - 1; i++) {
-        for (int j = 0; j < clusterCnt - 1; j++) {
-            if ((std::find(usedClusters.begin(), usedClusters.end(), j) == usedClusters.end()) ||
-                    (std::find(usedClusters.begin(), usedClusters.end(), i) == usedClusters.end())) {
-                newDistances[i][j] = distances[i][j];
+    for (unsigned int i = 0; i < clusterCnt - 1; i++) {
+        for (unsigned int j = 0; j < clusterCnt - 1; j++) {
+            if ((std::find(usedClusters.begin(), usedClusters.end(), j) == usedClusters.end())) {
+                if ((std::find(usedClusters.begin(), usedClusters.end(), i) == usedClusters.end())) {
+                    newDistances[i][j] = distances[i][j];
+                } else {
+                    newDistances[i][j] = maxVal;
+                }
             } else {
+                //cout << "Replacing val distances with maxVal since the cluster has died" << i << "," << j << endl;
                 newDistances[i][j] = maxVal;
             }
         }
     }
+
+
     cout << "Calculating distances to new cluster..." << endl;
     //Calc new distances
     vector<double> v1;
@@ -519,7 +476,6 @@ void hierarchicalClustering(int amountOfClusters) {
     v1.clear();
 
     cout << "Setting the new distances up for use..." << endl;
-
     distances = newDistances;
     //6. Goto step 3
     if (usedClusters.size() < (amountOfClusters - 1) * 2) {
@@ -533,18 +489,26 @@ void hierarchicalClustering(int amountOfClusters) {
     //free(distances);
     //free(vectorsInClusters);
 }
-
-/* TODO:
-     * I need to do the hierarchical clustering after the flat clustering is done.
-     * Maybe in another method. I should find the two clusters that are closest and then merge those.
-     * Then repeat until there is only one cluster left.
-     */
 int main() {
-    int amountOfClusters = 10;
+    unsigned int amountOfClusters = 10;
     //   kMeans(amountOfClusters);
     hierarchicalClustering(amountOfClusters);
+    createClusterBitString();
     //testing();
     //test3();
     return 0;
+}
+/*
+ * TODO: Should produce the strings used by the tagger.
+ *
+ * Example: 00000	‘Forgive	2
+            00000	doin	2
+            00000	managers’	2
+   Name of the file should be something similar to: gha.250M-c2000.paths
+   Should sort the file according to the string.
+   Noise is not relevant in this case. But it becomes relevant in the HDBSCAN.
+ */
+void createClusterBitString() {
+
 }
 
