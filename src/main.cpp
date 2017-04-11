@@ -253,11 +253,16 @@ double getDistanceBetweenVectors(vector<double> v1, vector<double> v2) {
 
 void hierarchicalClustering(unsigned int amountOfClusters) {
     //0. Creating variables and files.
-    unsigned int clusterCnt = amountOfClusters;
+    unsigned int clusterCnt = amountOfClusters-1;
     string clusterCntString = to_string(amountOfClusters);
     vector<vector<double>> means;
     vector<vector<double>> distances;
     vector<int> vectorsInClusters;
+    unsigned int level = 0;
+    int iVal = 0;
+    int jVal = 0;
+    string currentString;
+    string currentClass;
     //Deleting old tree and hierarchy files
     remove("../tree.txt");
     remove("../hierarchy.txt");
@@ -320,19 +325,17 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
         }
         v1.clear();
     }
+    Step3:
     cout << "Finding shortest distance between clusters..." << endl;
     //3. Merge the two closest clusters
-    Step3:
     double shortestDist = std::numeric_limits<double>::max();
-    int iVal = 0;
-    int jVal = 0;
-    for (unsigned int i = 0; i < clusterCnt; i++) {
-        for (unsigned int j = 0; j < clusterCnt; j++) {
+    iVal = 0;
+    jVal = 0;
+    for (unsigned int i = 0; i <= clusterCnt; i++) {
+        for (unsigned int j = 0; j <= clusterCnt; j++) {
             if (i!=j) {
                 double currentDist = distances[i][j];
-                //cout << "Distance found: " << currentDist << endl;
                 if (currentDist < shortestDist) {
-                    //     cout << "New shortest found: " << i << j << endl;
                     iVal = i;
                     jVal = j;
                     shortestDist = currentDist;
@@ -346,9 +349,39 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
     //Adding clusters that have been merged.
     usedClusters.push_back(iVal);
     usedClusters.push_back(jVal);
+    clusterCnt++;
+    clusterCntString = to_string(clusterCnt);
+
+    cout << "Creating tree and hierarchy files..." << endl;
+    //Writing tree
+    //Format: label,parent,level
+    ofstream treeFile;
+    treeFile.open("../tree.txt",std::ios_base::app);
+    treeFile << iString << "," << clusterCntString << "," << level << "\n";
+    treeFile << jString << "," << clusterCntString << "," << level << "\n";
+    treeFile.close();
+    //Writing hierarchy. It should keep track of the tree levels.
+    //Format: level,label<0>,label<1>,...,label<amountOfWords>
+    ofstream hierarchyFile;
+    hierarchyFile.open("../hierarchy.txt",std::ios_base::app);
+    string s = to_string(level) + ",";
+    ifstream mergedClassesReadFile1("../mergedClasses.txt");
+    string mergedClassesStr1;
+    while (std::getline(mergedClassesReadFile1, mergedClassesStr1)) {
+        size_t found = mergedClassesStr1.find(' ');
+        if (found!=string::npos) {
+            currentClass = mergedClassesStr1.substr(found + 1, mergedClassesStr1.length() - found - 1);
+        }
+        s = s + currentClass + ",";
+    }
+    mergedClassesReadFile1.close();
+    hierarchyFile << s + "\n";
+    hierarchyFile.close();
+    level++;
+
     cout << "Merging..." << endl;
     //Creating copy of classes
-    std::ifstream mergedClassesReadFile("../mergedClasses.txt");
+    ifstream mergedClassesReadFile("../mergedClasses.txt");
     std::string mergedClassesStr;
     ofstream oldClassesWriteFile;
     oldClassesWriteFile.open("../oldClasses.txt");
@@ -363,8 +396,7 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
     mergedClassesWriteFile.open("../mergedClasses.txt");
     std::ifstream oldClassesReadFile("../oldClasses.txt");
     std::string str;
-    string currentString;
-    string currentClass;
+
     while (std::getline(oldClassesReadFile, str)) {
         str = str + "\n";
         //Cutting it up.
@@ -372,14 +404,12 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
         if (found!=std::string::npos) {
             currentString = str.substr (0,found);
             currentClass = str.substr(found+1, str.length()-found-1);
-            cout << currentString << "," << currentClass << endl;
+          //  cout << currentString << "," << currentClass << endl;
             if (stoi(currentClass) == iVal) {
-                cout << "Found class that should be merged.." << iString << endl;
                 string newString = str.substr(0, str.find(iString));
                 newString = newString + clusterCntString + "\n";
                 mergedClassesWriteFile << newString;
             } else if (stoi(currentClass) == jVal) {
-                cout << "Found class that should be merged.." << jString << endl;
                 string newString = str.substr(0, str.find(jString));
                 newString = newString + clusterCntString + "\n";
                 mergedClassesWriteFile << newString;
@@ -390,23 +420,6 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
     }
     mergedClassesWriteFile.close();
     oldClassesReadFile.close();
-
-    cout << "Creating tree and hierarchy files..." << endl;
-    //Writing tree
-    //Format: label,parent
-    ofstream treeFile;
-    treeFile.open("../tree.txt",std::ios_base::app);
-    treeFile << iString << "," << clusterCntString << "\n";
-    treeFile << jString << "," << clusterCntString << "\n";
-    treeFile.close();
-    //Writing hierarchy. It should keep track of the tree levels.
-    //Format: level,label<0>,label<1>,...,label<amountOfWords>
-    ofstream hierarchyFile;
-    hierarchyFile.open("../hierarchy.txt",std::ios_base::app);
-    //hierarchyFile << iString << "," << jString << "\n";
-    hierarchyFile.close();
-    clusterCnt++;
-    clusterCntString = to_string(clusterCnt);
 
     //4. Recalculate mean/avg for the new cluster
     cout << "Recalculating mean..." << endl;
@@ -424,17 +437,18 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
 
     //5. Recalculate the distance from the new cluster to the existing ones
     cout << "Recalculating distances..." << endl;
-    //Copy the old distances..
+    //Creating new distance matrix..
     vector<vector<double>> newDistances;
     vector<double> newDistVec;
-    for (unsigned int i = 0; i < clusterCnt; i++) {
+    for (unsigned int i = 0; i <= clusterCnt; i++) {
         newDistVec.push_back(maxVal);
     }
-    for (unsigned int l = 0; l < clusterCnt; ++l) {
+    for (unsigned int l = 0; l <= clusterCnt; ++l) {
         newDistances.push_back(newDistVec);
     }
-    for (unsigned int i = 0; i < clusterCnt - 1; i++) {
-        for (unsigned int j = 0; j < clusterCnt - 1; j++) {
+    //Copy the old distances..
+    for (unsigned int i = 0; i < clusterCnt; i++) {
+        for (unsigned int j = 0; j < clusterCnt; j++) {
             if ((std::find(usedClusters.begin(), usedClusters.end(), j) == usedClusters.end())) {
                 if ((std::find(usedClusters.begin(), usedClusters.end(), i) == usedClusters.end())) {
                     newDistances[i][j] = distances[i][j];
@@ -442,34 +456,32 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
                     newDistances[i][j] = maxVal;
                 }
             } else {
-                //cout << "Replacing val distances with maxVal since the cluster has died" << i << "," << j << endl;
                 newDistances[i][j] = maxVal;
             }
         }
     }
 
-
     cout << "Calculating distances to new cluster..." << endl;
     //Calc new distances
     vector<double> v1;
     vector<double> v2;
-    v1 = means[clusterCnt - 1];
-    newDistances[clusterCnt-1][clusterCnt-1] = 0;
-    for (unsigned int j = 0; j < clusterCnt - 1; j++) {
-        v2 = means[j];
+    v1 = means[clusterCnt];
+    newDistances[clusterCnt][clusterCnt] = 0;
+    for (unsigned int j = 0; j < clusterCnt; j++) {
         if (std::find(usedClusters.begin(), usedClusters.end(), j) == usedClusters.end()) {
-            newDistances[clusterCnt-1][j] = getDistanceBetweenVectors(v1, v2);
-            newDistances[j][clusterCnt-1] = getDistanceBetweenVectors(v1, v2);
-            if (newDistances[clusterCnt-1][j] < 0) {
-                cout << "ERROR(Rounding to 0 instead): " << newDistances[clusterCnt-1][j] << endl;
+            v2 = means[j];
+            newDistances[clusterCnt][j] = getDistanceBetweenVectors(v1, v2);
+            newDistances[j][clusterCnt] = getDistanceBetweenVectors(v1, v2);
+            if (newDistances[clusterCnt][j] < 0) {
+                cout << "ERROR(Rounding to 0 instead): " << newDistances[clusterCnt][j] << endl;
                 cout << clusterCnt << j << endl;
-                newDistances[clusterCnt-1][j] = 0;
-                newDistances[j][clusterCnt-1] = 0;
+                newDistances[clusterCnt][j] = 0;
+                newDistances[j][clusterCnt] = 0;
             }
             v2.clear();
         } else {
-            newDistances[clusterCnt-1][j] = maxVal;
-            newDistances[j][clusterCnt-1] = maxVal;
+            newDistances[clusterCnt][j] = maxVal;
+            newDistances[j][clusterCnt] = maxVal;
         }
 
     }
