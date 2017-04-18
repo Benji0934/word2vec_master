@@ -4,6 +4,7 @@
 
 #include <iostream>
 
+#include <boost/algorithm/string/find.hpp>
 
 #include <cstring>
 #include <fstream>
@@ -12,10 +13,12 @@
 #include <sstream>
 #include <iterator>
 #include <cfloat>
+#include <string>
 
 
 using namespace std;
 using namespace std::chrono;
+using namespace boost;
 
 WrapperW2V wrapper = WrapperW2V("../word2vecFiles/text8-250kb-vector.bin");
 long vocab_size = wrapper.getWords().size();
@@ -364,7 +367,8 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
     //Format: level,label<0>,label<1>,...,label<amountOfWords>
     ofstream hierarchyFile;
     hierarchyFile.open("../hierarchy.txt",std::ios_base::app);
-    string s = to_string(level) + ",";
+    //string s = to_string(level) + ",";
+    string s = "";
     ifstream mergedClassesReadFile1("../mergedClasses.txt");
     string mergedClassesStr1;
     while (std::getline(mergedClassesReadFile1, mergedClassesStr1)) {
@@ -504,7 +508,7 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
 int main() {
     unsigned int amountOfClusters = 10;
     //   kMeans(amountOfClusters);
-    hierarchicalClustering(amountOfClusters);
+    //hierarchicalClustering(amountOfClusters);
     createClusterBitString();
     //testing();
     //test3();
@@ -521,6 +525,60 @@ int main() {
    Noise is not relevant in this case. But it becomes relevant in the HDBSCAN.
  */
 void createClusterBitString() {
+    //Assign 0 or 1 to each branch in the tree. Use the tree file.
+    unordered_map<int, int> branches;
+    std::ifstream treeFile( "../tree.txt" );
+    bool first = true;
+    for( std::string line; getline( treeFile, line ); ) {
+        int test = stoi(line.substr(0, line.find(",")));
+        if (first) {
+            branches.insert(make_pair<int, int>((int &&) test, 0) );
+            first = false;
+        } else {
+            branches.insert(make_pair<int, int>((int &&) test, 1) );
+            first = true;
+        }
+    }
+    //Assign paths to each word. Use the hierarchy file.
+    vector<int> prevClusters;
+    vector<string> clusterStrings;
+    //int prevCluster = -1;
+
+    //Initializing vector.
+    for(int i = 0; i < vocab_size; i++) {
+        prevClusters.push_back(-1);
+    }
+    for(int i = 0; i < vocab_size; i++) {
+        clusterStrings.push_back("");
+    }
+    //Reading hFile.
+    std::ifstream hierarchyFile( "../hierarchy.txt" );
+    for( std::string line; getline( hierarchyFile, line ); ) {
+        int wordNum = 0;
+        while (line.length()>1) {
+            string currentCluster = line.substr(0, line.find(","));
+            int currentClusterInt = stoi(currentCluster);
+            line = line.substr(line.find(",")+1, line.length()-(line.find(",")+1));
+
+            if (prevClusters[wordNum]!=currentClusterInt) {
+                clusterStrings[wordNum] = clusterStrings[wordNum] + to_string(branches[currentClusterInt]);
+            }
+            prevClusters[wordNum] = currentClusterInt;
+            wordNum++;
+
+            /*iterator_range<string::iterator> r = find_nth(line, ",", 1);
+            long secondComma = distance(line.begin(), r.begin());
+            //line = "";
+            long firstComma = line.find(",");
+            string currentClusterline = line.substr(firstComma, secondComma-firstComma);
+             */
+        }
+    }
+
+    for (int i = 0; i < vocab_size; i++) {
+        cout << "This is the the "<< i << ". cString: "<< clusterStrings[i] << endl;
+
+    }
 
 }
 
