@@ -580,5 +580,15 @@ void createClusterBitString() {
 
     }
 
+   // cout << wrapper.getInverseWords().at(0) << endl;
+
+    const unordered_map<uint32_t, string> &inverseWords = wrapper.getInverseWords();
+
+    ofstream myfile;
+    myfile.open("../paths.txt");
+    for(int i = 0; i < vocab_size; i++) {
+        myfile << clusterStrings[i] << " " << inverseWords.at(i) << " " << "1" << "\n";
+    }
+    myfile.close();
 }
 
