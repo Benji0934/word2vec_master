@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include <boost/algorithm/string/find.hpp>
+#include <boost/algorithm/string/replace.hpp>
 
 #include <cstring>
 #include <fstream>
@@ -20,7 +21,8 @@ using namespace std;
 using namespace std::chrono;
 using namespace boost;
 
-WrapperW2V wrapper = WrapperW2V("../word2vecFiles/text8-250kb-vector.bin");
+string vectorFilePath = "../word2vecFiles/text8-250kb-vector.bin";
+WrapperW2V wrapper = WrapperW2V(vectorFilePath);
 long vocab_size = wrapper.getWords().size();
 long long dims = wrapper.getNumDimensions();
 
@@ -28,6 +30,8 @@ double maxVal = DBL_MAX;
 vector<int> usedClusters;
 
 void createClusterBitString();
+
+void createTxtVectorFile(string basicString);
 
 int testing() {
     long dims = WrapperW2V("../word2vecFiles/text8-vector.bin").getNumDimensions();
@@ -509,11 +513,28 @@ int main() {
     unsigned int amountOfClusters = 10;
     //   kMeans(amountOfClusters);
     //hierarchicalClustering(amountOfClusters);
-    createClusterBitString();
+    //createClusterBitString();
+    createTxtVectorFile(vectorFilePath);
     //testing();
     //test3();
     return 0;
 }
+
+void createTxtVectorFile(string vectorFilePath) {
+    ofstream txtFile;
+    boost::replace_all(vectorFilePath,".bin",".txt");
+    txtFile.open(vectorFilePath);
+    txtFile << vocab_size << " " << dims << "\n";
+    for(int i = 0; i < vocab_size; i++) {
+        txtFile << wrapper.getInverseWords().at(i);
+        for(int j = 0; j < dims; j++) {
+            txtFile << " " << wrapper.getWordVectors().at(i).at(j);
+        }
+        txtFile << "\n";
+    }
+    txtFile.close();
+}
+
 /*
  * TODO: Should produce the strings used by the tagger.
  *
