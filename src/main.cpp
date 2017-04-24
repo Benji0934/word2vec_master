@@ -21,18 +21,17 @@ using namespace std;
 using namespace std::chrono;
 using namespace boost;
 
-string vectorFilePath = "../word2vecFiles/text8-250kb-vector.bin";
-WrapperW2V wrapper = WrapperW2V(vectorFilePath);
-long vocab_size = wrapper.getWords().size();
-long long dims = wrapper.getNumDimensions();
+int amountOfClusters = 0;
+//string vectorFilePath = "notSet";
+//string vectorFilePath = "../word2vecFiles/text8-250kb-vector.bin";
+
 
 double maxVal = DBL_MAX;
 vector<int> usedClusters;
 
-void createClusterBitString();
-
 void createTxtVectorFile(string basicString);
 
+/*
 int testing() {
     long dims = WrapperW2V("../word2vecFiles/text8-vector.bin").getNumDimensions();
     cout << "tihih" + to_string(dims);
@@ -62,22 +61,27 @@ int testing() {
     }
 
 
-    /*
+
     for (auto it = wrapper.getWordVectors().begin(); it != wrapper.getWordVectors().end(); ++it) {
         for (auto it1 = *it.base()->begin(); it1 != *it.base()->end(); ++it1) {
             cout << "Test" + to_string(it1) << endl;
 
         }
     }
-*/
+//
     return 0;
 
 }
+*/
+void createClusterBitString(string vectorFilePath);
 
 /*
  * Code taken from the word2vec.c file published by Mikolov.
  */
-void kMeans(int amountOfClusters) {
+void kMeans(int amountOfClusters, string vectorFilePath) {
+    WrapperW2V wrapper = WrapperW2V(vectorFilePath);
+    long vocab_size = wrapper.getWords().size();
+    //long long dims = wrapper.getNumDimensions();
     milliseconds startTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
     milliseconds endTime;
     long a, b, c, d;
@@ -88,8 +92,8 @@ void kMeans(int amountOfClusters) {
     vector<float> wordVec;
 
 // might have to find the maximum length for a string, instead of 10000.
-    char output_file[10000];
-    strcpy(output_file, "../word2vecFiles/classes.txt");
+    //char output_file[10000];
+    //strcpy(output_file, "../word2vecFiles/classes.txt");
     // FILE *fo;
     // fo = fopen(output_file, "wb");
 
@@ -187,7 +191,7 @@ void kMeans(int amountOfClusters) {
     }
     // Save the K-means classes
     ofstream myfile;
-    myfile.open("../classes.txt");
+    myfile.open("/home/benjamin/CLionProjects/wordClustering/classes.txt");
     cout << "writing to file" << endl;
     //std::ofstream log("example.txt", std::ios_base::app | std::ios_base::out);
 
@@ -212,7 +216,6 @@ void kMeans(int amountOfClusters) {
 
     //Create avgs.
 
-
     //Cleaning up.
     myfile.close();
     free(centcn);
@@ -236,8 +239,7 @@ std::vector<std::string> split(const std::string &s, char delim) {
     return elems;
 }
 
-double getDistanceBetweenVectors(vector<double> v1, vector<double> v2) {
-
+double getDistanceBetweenVectors(vector<double> v1, vector<double> v2, long dims) {
     double dot = 0, v1Length = 0, v2Length = 0, v1val = 0, v2val = 0;
     for (unsigned int i = 0; i < dims; i++) {
         v1val = v1.at(i);
@@ -252,134 +254,170 @@ double getDistanceBetweenVectors(vector<double> v1, vector<double> v2) {
     //cout << "v2 length: " << v2Length << endl;
     double cosSim = dot / (v1Length * v2Length);
     //cout << "cosSim: " << cosSim << endl;
-
+    if ((1 - cosSim) < 0) {
+        cout << "ERROR(Rounding to 0 instead): " << endl;
+        cout << "Wrong value: " << cosSim << endl;
+        cosSim = 1;
+    }
     return 1 - cosSim;
     //cos(d1, d2) = 1-(d1 ⋅ d2) / ||d1||*||d2||
-
 }
 
-void hierarchicalClustering(unsigned int amountOfClusters) {
+void hierarchicalClustering(int amountOfClusters, string vectorFilePath, long amountOfClasses) {
+    WrapperW2V wrapper = WrapperW2V(vectorFilePath);
+    //long vocab_size = wrapper.getWords().size();
+    long dims = wrapper.getNumDimensions();
     //0. Creating variables and files.
-    unsigned int clusterCnt = amountOfClusters-1;
-    string clusterCntString = to_string(amountOfClusters);
+    long clusterCnt = amountOfClusters;
+    string clusterCntString = to_string(clusterCnt);
     vector<vector<double>> means;
     vector<vector<double>> distances;
-    vector<int> vectorsInClusters;
+    vector<int> amountOfVectorsInClusters;
     unsigned int level = 0;
     int iVal = 0;
     int jVal = 0;
     string currentString;
     string currentClass;
     //Deleting old tree and hierarchy files
-    remove("../tree.txt");
-    remove("../hierarchy.txt");
+    remove("/home/benjamin/CLionProjects/wordClustering/tree.txt");
+    remove("/home/benjamin/CLionProjects/wordClustering/hierarchy.txt");
 
     //Initializing 'means' and 'distances'
-    for (unsigned int i = 0; i < amountOfClusters; i++) {
-        vectorsInClusters.push_back(0);
+    for (int i = 0; i < amountOfClusters; i++) {
+        amountOfVectorsInClusters.push_back(0);
     }
     //Creating means
     vector<double> temp;
     for (int i = 0; i < dims; i++) {
         temp.push_back(0);
     }
-    for (unsigned int i = 0; i < amountOfClusters; i++) {
+    for (int i = 0; i < amountOfClusters; i++) {
         means.push_back(temp);
     }
     //Creating distance
     temp.clear();
-    for (unsigned int i = 0; i < amountOfClusters; i++) {
-        temp.push_back(0);
+    for (int i = 0; i < amountOfClusters; i++) {
+        temp.push_back(maxVal);
     }
-    for (unsigned int i = 0; i < amountOfClusters; i++) {
+    for (int i = 0; i < amountOfClusters; i++) {
         distances.push_back(temp);
     }
 
     //1. Calculate means (mean-points)
-    cout << "Calculating initial means..." << endl;
-    std::ifstream infile("../classes.txt");
+    //cout << "Calculating initial means..." << endl;
+    std::ifstream infile("/home/benjamin/CLionProjects/wordClustering/classes/classes.txt");
     std::string line;
     while (std::getline(infile, line)) {
         string word;
         int clusterID;
+        //Finding the current clusterID.
         vector<string> stringAndPos = split(line, ' ');
         word = stringAndPos.front();
         clusterID = stoi(stringAndPos.back());
+        //Finding the vector for the word.
         vector<float> wordVector = wrapper.getVectorForKnownWord(word);
-        vectorsInClusters[clusterID]++;
+        amountOfVectorsInClusters[clusterID]++;
+
+        //Calculating new mean for the cluster found.
         for (unsigned int i = 0; i < dims; i++) {
-            means[clusterID][i] = (means[clusterID][i] + wordVector.at(i)) / vectorsInClusters[clusterID];
+            means[clusterID][i] = (means[clusterID][i] + wordVector.at(i)) / amountOfVectorsInClusters[clusterID];
         }
     }
     //2. Measure cosine distance between means
-    //Creating vectors
-    for (unsigned int k = 0; k < amountOfClusters; k++) {
+    //Going through all pairs of vectors.
+    for (int k = 0; k < amountOfClusters; k++) {
+
         vector<double> v1;
         vector<double> v2;
         v1 = means[k];
-        for (unsigned int j = 0; j < amountOfClusters; j++) {
-            v2 = means[j];
-            if (k == j) {
-                distances[k][j] = 0;
-            } else {
-                distances[k][j] = getDistanceBetweenVectors(v1, v2);
-                if (distances[k][j] < 0) {
-                    cout << "ERROR: " << distances[k][j] << endl;
-                    cout << k << j << endl;
+        for (int j = 0; j < amountOfClusters; j++) {
+            //Checking if the clusternumber is in use.
+            if (amountOfVectorsInClusters[k] != 0) {
+                if (amountOfVectorsInClusters[j] != 0) {
+                    v2 = means[j];
+                    //The distance from the same vector to itself is 0.
+                    if (k == j) {
+                        distances[k][j] = 0;
+                    } else {
+                        distances[k][j] = getDistanceBetweenVectors(v1, v2, dims);
+                        if (distances[k][j] < 0) {
+                            cout << "ERROR in initialization of clusters: " << distances[k][j] << endl;
+                            cout << k << j << endl;
+                        }
+                    }
+                    v2.clear();
+                } else {
+                    distances[k][j] = maxVal;
                 }
+            } else {
+                distances[k][j] = maxVal;
             }
-            v2.clear();
         }
         v1.clear();
     }
     Step3:
-    cout << "Finding shortest distance between clusters..." << endl;
+    //cout << "Finding shortest distance between clusters..." << endl;
     //3. Merge the two closest clusters
-    double shortestDist = std::numeric_limits<double>::max();
-    iVal = 0;
-    jVal = 0;
-    for (unsigned int i = 0; i <= clusterCnt; i++) {
-        for (unsigned int j = 0; j <= clusterCnt; j++) {
-            if (i!=j) {
-                double currentDist = distances[i][j];
-                if (currentDist < shortestDist) {
-                    iVal = i;
-                    jVal = j;
-                    shortestDist = currentDist;
+    double shortestDist = maxVal;
+    iVal = -1;
+    jVal = -1;
+    //Running through the
+    for (int i = 0; i < clusterCnt; i++) {
+        for (int j = 0; j < clusterCnt; j++) {
+            if (i != j) {
+                //If the cluster is in use, and it has not been deleted yet, then we can check the dist.
+                //cout << (amountOfVectorsInClusters[i] != 0) << endl;
+                //cout << (amountOfVectorsInClusters[j] != 0) << endl;
+           //     cout << (find(usedClusters.begin(), usedClusters.end(), i) == usedClusters.end()) << endl;
+           //     cout << (find(usedClusters.begin(), usedClusters.end(), j) == usedClusters.end()) << endl;
+                if ((amountOfVectorsInClusters[i] != 0)
+                    && (amountOfVectorsInClusters[j] != 0))
+                {
+                  //  cout << "currentDist " << distances[i][j] << endl;
+                    double currentDist = distances[i][j];
+                    if (currentDist < shortestDist) {
+                        iVal = i;
+                        jVal = j;
+                        shortestDist = currentDist;
+                    }
                 }
             }
         }
     }
+    if (jVal == -1 || iVal == -1) {
+            cout << "ERROR distance not found: iVAL or jVAL equals zero" << endl;
+    }
+
     string iString = to_string(iVal);
     string jString = to_string(jVal);
-    cout << "Adding numbers to usedClusters..." << endl;
+    cout << "Adding numbers to usedClusters..." << jString << " " << iString << endl;
     //Adding clusters that have been merged.
     usedClusters.push_back(iVal);
     usedClusters.push_back(jVal);
-    clusterCnt++;
-    clusterCntString = to_string(clusterCnt);
 
-    cout << "Creating tree and hierarchy files..." << endl;
+    //cout << "Creating tree and hierarchy files..." << endl;
     //Writing tree
     //Format: label,parent,level
     ofstream treeFile;
-    treeFile.open("../tree.txt",std::ios_base::app);
+    treeFile.open("/home/benjamin/CLionProjects/wordClustering/tree.txt", std::ios_base::app);
     treeFile << iString << "," << clusterCntString << "," << level << "\n";
     treeFile << jString << "," << clusterCntString << "," << level << "\n";
     treeFile.close();
     //Writing hierarchy. It should keep track of the tree levels.
     //Format: level,label<0>,label<1>,...,label<amountOfWords>
     ofstream hierarchyFile;
-    hierarchyFile.open("../hierarchy.txt",std::ios_base::app);
+    hierarchyFile.open("/home/benjamin/CLionProjects/wordClustering/hierarchy.txt", std::ios_base::app);
     //string s = to_string(level) + ",";
     string s = "";
-    ifstream mergedClassesReadFile1("../mergedClasses.txt");
+    ifstream mergedClassesReadFile1("/home/benjamin/CLionProjects/wordClustering/classes/mergedClasses.txt");
     string mergedClassesStr1;
     while (std::getline(mergedClassesReadFile1, mergedClassesStr1)) {
+        //Finding the class of the word.
         size_t found = mergedClassesStr1.find(' ');
-        if (found!=string::npos) {
+        if (found != string::npos) {
             currentClass = mergedClassesStr1.substr(found + 1, mergedClassesStr1.length() - found - 1);
         }
+        //Adding the word's class to the hierarchy file.
         s = s + currentClass + ",";
     }
     mergedClassesReadFile1.close();
@@ -387,13 +425,14 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
     hierarchyFile.close();
     level++;
 
-    cout << "Merging..." << endl;
+    //cout << "Merging..." << endl;
     //Creating copy of classes
-    ifstream mergedClassesReadFile("../mergedClasses.txt");
-    std::string mergedClassesStr;
+    ifstream mergedClassesReadFile("/home/benjamin/CLionProjects/wordClustering/classes/mergedClasses.txt");
+    string mergedClassesStr;
     ofstream oldClassesWriteFile;
-    oldClassesWriteFile.open("../oldClasses.txt");
-    while (std::getline(mergedClassesReadFile, mergedClassesStr)) {
+    remove("/home/benjamin/CLionProjects/wordClustering/classes/oldClasses.txt");
+    oldClassesWriteFile.open("/home/benjamin/CLionProjects/wordClustering/classes/oldClasses.txt");
+    while (getline(mergedClassesReadFile, mergedClassesStr)) {
         oldClassesWriteFile << mergedClassesStr + "\n";
     }
     mergedClassesReadFile.close();
@@ -401,27 +440,31 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
 
     //Merging clusters in mergedClasses.txt
     ofstream mergedClassesWriteFile;
-    mergedClassesWriteFile.open("../mergedClasses.txt");
-    std::ifstream oldClassesReadFile("../oldClasses.txt");
-    std::string str;
-
+    mergedClassesWriteFile.open("/home/benjamin/CLionProjects/wordClustering/classes/mergedClasses.txt");
+    ifstream oldClassesReadFile("/home/benjamin/CLionProjects/wordClustering/classes/oldClasses.txt");
+    string str;
     while (std::getline(oldClassesReadFile, str)) {
         str = str + "\n";
         //Cutting it up.
         std::size_t found = str.find(' ');
-        if (found!=std::string::npos) {
-            currentString = str.substr (0,found);
-            currentClass = str.substr(found+1, str.length()-found-1);
-          //  cout << currentString << "," << currentClass << endl;
+        if (found != std::string::npos) {
+            //Finding the old class of the word.
+            currentString = str.substr(0, found);
+            currentClass = str.substr(found + 1, str.length() - found - 1);
+            //If the old class is one of the merged classes, then rename it to the new one.
             if (stoi(currentClass) == iVal) {
+      //          cout << "Found iVal " << iVal << endl;
                 string newString = str.substr(0, str.find(iString));
                 newString = newString + clusterCntString + "\n";
                 mergedClassesWriteFile << newString;
             } else if (stoi(currentClass) == jVal) {
+      //          cout << "Found jVal " << jVal << endl;
+
                 string newString = str.substr(0, str.find(jString));
                 newString = newString + clusterCntString + "\n";
                 mergedClassesWriteFile << newString;
-            } else {
+            } //Otherwise we write the same line again.
+            else {
                 mergedClassesWriteFile << str;
             }
         }
@@ -430,7 +473,7 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
     oldClassesReadFile.close();
 
     //4. Recalculate mean/avg for the new cluster
-    cout << "Recalculating mean..." << endl;
+    //cout << "Recalculating mean..." << endl;
     //double newMean;
     vector<double> iVec;
     vector<double> jVec;
@@ -444,20 +487,25 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
     means.push_back(newMean);
 
     //5. Recalculate the distance from the new cluster to the existing ones
-    cout << "Recalculating distances..." << endl;
+    //cout << "Recalculating distances..." << endl;
     //Creating new distance matrix..
     vector<vector<double>> newDistances;
     vector<double> newDistVec;
-    for (unsigned int i = 0; i <= clusterCnt; i++) {
+    for (unsigned int i = 0; i < clusterCnt + 1; i++) {
         newDistVec.push_back(maxVal);
     }
-    for (unsigned int l = 0; l <= clusterCnt; ++l) {
+    for (unsigned int l = 0; l < clusterCnt + 1; ++l) {
         newDistances.push_back(newDistVec);
     }
+
+
     //Copy the old distances..
-    for (unsigned int i = 0; i < clusterCnt; i++) {
-        for (unsigned int j = 0; j < clusterCnt; j++) {
+    //Going through all pairs of clusters.
+    for (int i = 0; i < clusterCnt; i++) {
+        for (int j = 0; j < clusterCnt; j++) {
+            //If the clusters are not among the merged/deleted ones then we find the new distance.
             if ((std::find(usedClusters.begin(), usedClusters.end(), j) == usedClusters.end())) {
+                //Otherwise we just use the old distance.
                 if ((std::find(usedClusters.begin(), usedClusters.end(), i) == usedClusters.end())) {
                     newDistances[i][j] = distances[i][j];
                 } else {
@@ -469,17 +517,24 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
         }
     }
 
-    cout << "Calculating distances to new cluster..." << endl;
+    //cout << "Calculating distances to new cluster..." << endl;
     //Calc new distances
     vector<double> v1;
     vector<double> v2;
+    //cout << clusterCnt << endl;
+    //Finding mean for the new cluster
     v1 = means[clusterCnt];
+    //Setting distance to self to 0.
     newDistances[clusterCnt][clusterCnt] = 0;
-    for (unsigned int j = 0; j < clusterCnt; j++) {
+    //Finding distance to all other clusters.
+    for (int j = 0; j < clusterCnt; j++) {
+        //Unless they are gone.
         if (std::find(usedClusters.begin(), usedClusters.end(), j) == usedClusters.end()) {
+            //Setting distances
             v2 = means[j];
-            newDistances[clusterCnt][j] = getDistanceBetweenVectors(v1, v2);
-            newDistances[j][clusterCnt] = getDistanceBetweenVectors(v1, v2);
+            newDistances[clusterCnt][j] = getDistanceBetweenVectors(v1, v2, dims);
+            newDistances[j][clusterCnt] = getDistanceBetweenVectors(v1, v2, dims);
+            //Checking for rounding errors.
             if (newDistances[clusterCnt][j] < 0) {
                 cout << "ERROR(Rounding to 0 instead): " << newDistances[clusterCnt][j] << endl;
                 cout << clusterCnt << j << endl;
@@ -491,14 +546,20 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
             newDistances[clusterCnt][j] = maxVal;
             newDistances[j][clusterCnt] = maxVal;
         }
-
     }
     v1.clear();
 
-    cout << "Setting the new distances up for use..." << endl;
+    //Counting up, the amount of clusters in our matrix, and the amount of clusters produced.
+    clusterCnt++;
+    clusterCntString = to_string(clusterCnt);
+
+    //cout << "Setting the new distances up for use..." << endl;
     distances = newDistances;
     //6. Goto step 3
-    if (usedClusters.size() < (amountOfClusters - 1) * 2) {
+
+    cout << clusterCnt << endl;
+    if (clusterCnt < (amountOfClasses + amountOfClusters - 2)) {
+        //if (usedClusters.size() < (amountOfClasses - 1) * 2) {
         cout << "Looping..." << endl;
         goto Step3;
     }
@@ -507,27 +568,153 @@ void hierarchicalClustering(unsigned int amountOfClusters) {
     //Clean up
     //free(means);
     //free(distances);
-    //free(vectorsInClusters);
+    //free(amountOfVectorsInClusters);
 }
-int main() {
-    unsigned int amountOfClusters = 10;
-    //   kMeans(amountOfClusters);
-    //hierarchicalClustering(amountOfClusters);
-    //createClusterBitString();
-    createTxtVectorFile(vectorFilePath);
-    //testing();
-    //test3();
-    return 0;
+
+/*
+void TrainModel() {
+    WrapperW2V wrapper = WrapperW2V(vectorFilePath);
+    long vocab_size = wrapper.getWords().size();
+    long long dims = wrapper.getNumDimensions();
+    long a, b, c, d;
+    FILE *fo;
+    pthread_t *pt = (pthread_t *)malloc(num_threads * sizeof(pthread_t));
+    printf("Starting training using file %s\n", train_file);
+    starting_alpha = alpha;
+    if (read_vocab_file[0] != 0) ReadVocab(); else LearnVocabFromTrainFile();
+    if (save_vocab_file[0] != 0) SaveVocab();
+    if (output_file[0] == 0) return;
+    InitNet();
+    if (negative > 0) InitUnigramTable();
+    start = clock();
+    for (a = 0; a < num_threads; a++) pthread_create(&pt[a], NULL, TrainModelThread, (void *)a);
+    for (a = 0; a < num_threads; a++) pthread_join(pt[a], NULL);
+    fo = fopen(output_file, "wb");
+    if (classes == 0) {
+        // Save the word vectors
+        fprintf(fo, "%lld %lld\n", vocab_size, layer1_size);
+        for (a = 0; a < vocab_size; a++) {
+            fprintf(fo, "%s ", vocab[a].word);
+            if (binary) for (b = 0; b < layer1_size; b++) fwrite(&syn0[a * layer1_size + b], sizeof(real), 1, fo);
+            else for (b = 0; b < layer1_size; b++) fprintf(fo, "%lf ", syn0[a * layer1_size + b]);
+            fprintf(fo, "\n");
+        }
+    } else {
+        // Run K-means on the word vectors
+        int clcn = classes, iter = 10, closeid;
+        int *centcn = (int *)malloc(classes * sizeof(int));
+        int *cl = (int *)calloc(vocab_size, sizeof(int));
+        real closev, x;
+        real *cent = (real *)calloc(classes * layer1_size, sizeof(real));
+        for (a = 0; a < vocab_size; a++) cl[a] = a % clcn;
+        for (a = 0; a < iter; a++) {
+            for (b = 0; b < clcn * layer1_size; b++) cent[b] = 0;
+            for (b = 0; b < clcn; b++) centcn[b] = 1;
+            for (c = 0; c < vocab_size; c++) {
+                for (d = 0; d < layer1_size; d++) cent[layer1_size * cl[c] + d] += syn0[c * layer1_size + d];
+                centcn[cl[c]]++;
+            }
+            for (b = 0; b < clcn; b++) {
+                closev = 0;
+                for (c = 0; c < layer1_size; c++) {
+                    cent[layer1_size * b + c] /= centcn[b];
+                    closev += cent[layer1_size * b + c] * cent[layer1_size * b + c];
+                }
+                closev = sqrt(closev);
+                for (c = 0; c < layer1_size; c++) cent[layer1_size * b + c] /= closev;
+            }
+            for (c = 0; c < vocab_size; c++) {
+                closev = -10;
+                closeid = 0;
+                for (d = 0; d < clcn; d++) {
+                    x = 0;
+                    for (b = 0; b < layer1_size; b++) x += cent[layer1_size * d + b] * syn0[c * layer1_size + b];
+                    if (x > closev) {
+                        closev = x;
+                        closeid = d;
+                    }
+                }
+                cl[c] = closeid;
+            }
+        }
+        // Save the K-means classes
+        for (a = 0; a < vocab_size; a++) fprintf(fo, "%s %d\n", vocab[a].word, cl[a]);
+
+        free(centcn);
+        free(cent);
+        free(cl);
+    }
+    fclose(fo);
+}
+*/
+int main(int ac, char **av) {
+
+    if (ac == 3) {
+        string amountOfClustersStr = av[2];
+        string vectorFilePath = av[1];
+        amountOfClusters = stoi(amountOfClustersStr);
+
+
+        cout << amountOfClusters << vectorFilePath << endl;
+        //kMeans(amountOfClusters, vectorFilePath);
+        //check classes.txt file.
+        std::ifstream infile("/home/benjamin/CLionProjects/wordClustering/classes/classes.txt");
+        std::string line;
+        vector<int> seenClasses;
+        int currentClass = -1;
+        while (std::getline(infile, line)) {
+            int classesStartIdx = line.find(" ");
+            currentClass = stoi(line.substr(classesStartIdx + 1, line.length()));
+            //cout << currentClass << endl;
+            if (std::find(seenClasses.begin(), seenClasses.end(), currentClass) != seenClasses.end()) {
+                /* v contains x */
+                //Do nothing
+            } else {
+                /* v does not contain x */
+                seenClasses.push_back(currentClass);
+            }
+        }
+        for (int i = 0; i < amountOfClusters; i++) {
+            if (std::find(seenClasses.begin(), seenClasses.end(), i) != seenClasses.end()) {
+                /* v contains x */
+                //Do nothing
+            } else {
+                /* v does not contain x */
+                // cout << "ERROR: The classes file does not contain this clusterNumber: " << i << endl;
+            }
+        }
+        cout << "Seen classes.size = " << seenClasses.size() << endl;
+
+        //Creating mergedClasses..
+        std::ifstream src("/home/benjamin/CLionProjects/wordClustering/classes/classes.txt", std::ios::binary);
+        std::ofstream dst("/home/benjamin/CLionProjects/wordClustering/classes/mergedClasses.txt", std::ios::binary);
+        dst << src.rdbuf();
+        src.close();
+        dst.close();
+        cout << "Doing hierarchical clustering.." << endl;
+        hierarchicalClustering(amountOfClusters, vectorFilePath, seenClasses.size());
+        cout << "creating bitstrings.." << endl;
+        createClusterBitString(vectorFilePath);
+        cout << "creating txtVec file.." << endl;
+        createTxtVectorFile(vectorFilePath);
+        return 0;
+    } else {
+        return 1;
+    }
 }
 
 void createTxtVectorFile(string vectorFilePath) {
+    vectorFilePath = vectorFilePath;
+    WrapperW2V wrapper = WrapperW2V(vectorFilePath);
+    long vocab_size = wrapper.getWords().size();
+    long long dims = wrapper.getNumDimensions();
     ofstream txtFile;
-    boost::replace_all(vectorFilePath,".bin",".txt");
+    boost::replace_all(vectorFilePath, ".bin", ".txt");
     txtFile.open(vectorFilePath);
     txtFile << vocab_size << " " << dims << "\n";
-    for(int i = 0; i < vocab_size; i++) {
+    for (int i = 0; i < vocab_size; i++) {
         txtFile << wrapper.getInverseWords().at(i);
-        for(int j = 0; j < dims; j++) {
+        for (int j = 0; j < dims; j++) {
             txtFile << " " << wrapper.getWordVectors().at(i).at(j);
         }
         txtFile << "\n";
@@ -545,18 +732,22 @@ void createTxtVectorFile(string vectorFilePath) {
    Should sort the file according to the string.
    Noise is not relevant in this case. But it becomes relevant in the HDBSCAN.
  */
-void createClusterBitString() {
+void createClusterBitString(string vectorFilePath) {
+    WrapperW2V wrapper = WrapperW2V(vectorFilePath);
+    long vocab_size = wrapper.getWords().size();
+    cout << "Initialized wrapper" << endl;
+    //long long dims = wrapper.getNumDimensions();
     //Assign 0 or 1 to each branch in the tree. Use the tree file.
     unordered_map<int, int> branches;
-    std::ifstream treeFile( "../tree.txt" );
+    std::ifstream treeFile("/home/benjamin/CLionProjects/wordClustering/tree.txt");
     bool first = true;
-    for( std::string line; getline( treeFile, line ); ) {
+    for (std::string line; getline(treeFile, line);) {
         int test = stoi(line.substr(0, line.find(",")));
         if (first) {
-            branches.insert(make_pair<int, int>((int &&) test, 0) );
+            branches.insert(make_pair<int, int>((int &&) test, 0));
             first = false;
         } else {
-            branches.insert(make_pair<int, int>((int &&) test, 1) );
+            branches.insert(make_pair<int, int>((int &&) test, 1));
             first = true;
         }
     }
@@ -566,22 +757,22 @@ void createClusterBitString() {
     //int prevCluster = -1;
 
     //Initializing vector.
-    for(int i = 0; i < vocab_size; i++) {
+    for (int i = 0; i < vocab_size; i++) {
         prevClusters.push_back(-1);
     }
-    for(int i = 0; i < vocab_size; i++) {
+    for (int i = 0; i < vocab_size; i++) {
         clusterStrings.push_back("");
     }
     //Reading hFile.
-    std::ifstream hierarchyFile( "../hierarchy.txt" );
-    for( std::string line; getline( hierarchyFile, line ); ) {
+    std::ifstream hierarchyFile("/home/benjamin/CLionProjects/wordClustering/hierarchy.txt");
+    for (std::string line; getline(hierarchyFile, line);) {
         int wordNum = 0;
-        while (line.length()>1) {
+        while (line.length() > 1) {
             string currentCluster = line.substr(0, line.find(","));
             int currentClusterInt = stoi(currentCluster);
-            line = line.substr(line.find(",")+1, line.length()-(line.find(",")+1));
+            line = line.substr(line.find(",") + 1, line.length() - (line.find(",") + 1));
 
-            if (prevClusters[wordNum]!=currentClusterInt) {
+            if (prevClusters[wordNum] != currentClusterInt) {
                 clusterStrings[wordNum] = clusterStrings[wordNum] + to_string(branches[currentClusterInt]);
             }
             prevClusters[wordNum] = currentClusterInt;
@@ -597,17 +788,17 @@ void createClusterBitString() {
     }
 
     for (int i = 0; i < vocab_size; i++) {
-        cout << "This is the the "<< i << ". cString: "<< clusterStrings[i] << endl;
+        //cout << "This is the the "<< i << ". cString: "<< clusterStrings[i] << endl;
 
     }
 
-   // cout << wrapper.getInverseWords().at(0) << endl;
+    // cout << wrapper.getInverseWords().at(0) << endl;
 
     const unordered_map<uint32_t, string> &inverseWords = wrapper.getInverseWords();
-
+    remove("/home/benjamin/CLionProjects/wordClustering/paths.txt");
     ofstream myfile;
-    myfile.open("../paths.txt");
-    for(int i = 0; i < vocab_size; i++) {
+    myfile.open("/home/benjamin/CLionProjects/wordClustering/paths.txt");
+    for (int i = 0; i < vocab_size; i++) {
         myfile << clusterStrings[i] << " " << inverseWords.at(i) << " " << "1" << "\n";
     }
     myfile.close();
