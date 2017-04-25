@@ -410,7 +410,7 @@ void hierarchicalClustering(int amountOfClusters, string vectorFilePath, long am
 
     string iString = to_string(iVal);
     string jString = to_string(jVal);
-    cout << "Adding numbers to usedClusters..." << jString << " " << iString << endl;
+    //cout << "Adding numbers to usedClusters..." << jString << " " << iString << endl;
     //Adding clusters that have been merged.
     usedClusters.push_back(iVal);
     usedClusters.push_back(jVal);
@@ -586,10 +586,10 @@ void hierarchicalClustering(int amountOfClusters, string vectorFilePath, long am
     distances = newDistances;
     //6. Goto step 3
 
-    cout << clusterCnt << endl;
+    cout << "Merged old clusters and created new cluster with number:" << clusterCnt << endl;
     if (clusterCnt < (amountOfClasses + amountOfClusters - 1)) {
         //if (usedClusters.size() < (amountOfClasses - 1) * 2) {
-        cout << "Looping..." << endl;
+   //     cout << "Looping..." << endl;
         goto Step3;
     }
 
@@ -685,6 +685,7 @@ int main(int ac, char **av) {
 
 
         cout << amountOfClusters << vectorFilePath << endl;
+        cout << "Running Kmeans on the vectors" << endl;
         kMeans(amountOfClusters, vectorFilePath);
         //check classes.txt file.
         //std::ifstream infile("/home/benjamin/CLionProjects/wordClustering/classes/classes.txt");
@@ -725,9 +726,9 @@ int main(int ac, char **av) {
         dst.close();
         cout << "Doing hierarchical clustering.." << endl;
         hierarchicalClustering(amountOfClusters, vectorFilePath, seenClasses.size());
-        cout << "creating bitstrings.." << endl;
+        cout << "Creating bitstrings.." << endl;
         createClusterBitString(vectorFilePath);
-        cout << "creating txtVec file.." << endl;
+        cout << "Creating txtVec file.." << endl;
         createTxtVectorFile(vectorFilePath);
         return 0;
     } else {
@@ -755,7 +756,7 @@ void createTxtVectorFile(string vectorFilePath) {
 }
 
 /*
- * TODO: Should produce the strings used by the tagger.
+ *
  *
  * Example: 00000	‘Forgive	2
             00000	doin	2
@@ -767,23 +768,24 @@ void createTxtVectorFile(string vectorFilePath) {
 void createClusterBitString(string vectorFilePath) {
     WrapperW2V wrapper = WrapperW2V(vectorFilePath);
     long vocab_size = wrapper.getWords().size();
-    cout << "Initialized wrapper" << endl;
+   // cout << "Initialized wrapper" << endl;
     //long long dims = wrapper.getNumDimensions();
     //Assign 0 or 1 to each branch in the tree. Use the tree file.
     unordered_map<int, int> branches;
-    std::ifstream treeFile("../wordClustering/tree.txt");
+    std::ifstream treeFile("../tree.txt");
     //std::ifstream treeFile("/home/benjamin/CLionProjects/wordClustering/tree.txt");
     bool first = true;
     for (std::string line; getline(treeFile, line);) {
-        int test = stoi(line.substr(0, line.find(",")));
+        int clusterNumber = stoi(line.substr(0, line.find(",")));
         if (first) {
-            branches.insert(make_pair<int, int>((int &&) test, 0));
+            branches.insert(make_pair<int, int>((int &&) clusterNumber, 0));
             first = false;
         } else {
-            branches.insert(make_pair<int, int>((int &&) test, 1));
+            branches.insert(make_pair<int, int>((int &&) clusterNumber, 1));
             first = true;
         }
     }
+
     //Assign paths to each word. Use the hierarchy file.
     vector<int> prevClusters;
     vector<string> clusterStrings;
@@ -792,8 +794,6 @@ void createClusterBitString(string vectorFilePath) {
     //Initializing vector.
     for (int i = 0; i < vocab_size; i++) {
         prevClusters.push_back(-1);
-    }
-    for (int i = 0; i < vocab_size; i++) {
         clusterStrings.push_back("");
     }
     //Reading hFile.
@@ -819,11 +819,6 @@ void createClusterBitString(string vectorFilePath) {
             string currentClusterline = line.substr(firstComma, secondComma-firstComma);
              */
         }
-    }
-
-    for (int i = 0; i < vocab_size; i++) {
-        //cout << "This is the the "<< i << ". cString: "<< clusterStrings[i] << endl;
-
     }
 
     // cout << wrapper.getInverseWords().at(0) << endl;
